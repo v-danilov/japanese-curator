@@ -16,7 +16,9 @@ class SeleniumTranslator : ITranslator {
      */
     private companion object {
         const val ID_TEXTFIELD_SRC = "source"
-        const val ID_TEXTFIELD_DST = "//span[@class='tlid-translation translation']"
+        const val CLASS_MARKER_DST = "//span[@class='tlid-translation translation']"
+        const val CLASS_MARKER_TRANSLIT_TO = "//div[@class='result tlid-copy-target']/div[@class='tlid-result-transliteration-container result-transliteration-container transliteration-container']/div[@class='tlid-transliteration-content transliteration-content full']"
+        const val CLASS_MARKER_TRANSLIT_FROM = "//div[@class='source-input']/div[@class='tlid-source-transliteration-container source-transliteration-container transliteration-container']/div[@class='tlid-transliteration-content transliteration-content full']"
     }
 
     /**
@@ -38,10 +40,11 @@ class SeleniumTranslator : ITranslator {
         println("Input text: ".plus(sourceField.text))
         //Reading the translation
         println("Trying to translate")
-        return translateAttempt()
+        return translateAttempt(languageCodeSrc)
     }
 
-    private fun translateAttempt(): String {
+
+    private fun translateAttempt(from: LanguageCode): String {
         //Trying to parse google translation in 1.2 seconds. If result doesnt ready - mark it as failed
         val timeout = System.currentTimeMillis() + 1200
         var isTranslationSuccessful = false
@@ -52,9 +55,15 @@ class SeleniumTranslator : ITranslator {
         //Trying to read translation while it is not successful or waiting time is not running out
         while (System.currentTimeMillis() < timeout && !isTranslationSuccessful) {
             try {
-                val destField = seleniumDriver.findElement(By.xpath(ID_TEXTFIELD_DST))
+                val destField = seleniumDriver.findElement(By.xpath(CLASS_MARKER_DST))
+
+                //Выбираем поле с транслитом откуда читать. Зависит от того, в какю сторону переводим.
+                // С японского - поле слева (source)
+                // На японский - поле справа (result)
+                val translitField =  if (from == LanguageCode.JAPANESE) seleniumDriver.findElement(By.xpath(CLASS_MARKER_TRANSLIT_FROM)) else seleniumDriver.findElement(By.xpath(CLASS_MARKER_TRANSLIT_TO))
+
                 println("Translation completed")
-                translationResult = destField.text
+                translationResult = destField.text.plus(" (").plus(translitField.text).plus(").")
                 isTranslationSuccessful = true
             } catch (e: Exception) {
                 println("Attempt failed")
